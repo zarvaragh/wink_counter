@@ -5,7 +5,6 @@ import sys
 
 path = sys.executable
 path = path.replace("pythonw.exe", "shape_predictor_68_face_landmarks.dat")
-
 # path = 'C:\\Users\\RAVEN\\Anaconda3\\envs\\tensorflow1_cpu\\shape_predictor_68_face_landmarks.dat'
 
 predictor = dlib.shape_predictor(path)
