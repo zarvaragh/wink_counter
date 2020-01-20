@@ -5,6 +5,7 @@ import sys
 
 path = sys.executable
 path = path.replace("pythonw.exe", "shape_predictor_68_face_landmarks.dat")
+
 # path = 'C:\\Users\\RAVEN\\Anaconda3\\envs\\tensorflow1_cpu\\shape_predictor_68_face_landmarks.dat'
 
 predictor = dlib.shape_predictor(path)
@@ -32,25 +33,23 @@ def annotate_landmarks(img, landmarks):
         cv2.circle(img, pos, 3, color=(0, 255, 255))
     return img
 
-def top_lip(landmarks):
-    top_lip_pts = []
+def top_eyelash(landmarks):
+    top_eyelash_pts = []
     for i in range(36,39):
-        top_lip_pts.append(landmarks[i])
+        top_eyelash_pts.append(landmarks[i])
     # for i in range(61,64):
-    #     top_lip_pts.append(landmarks[i])
-    top_lip_all_pts = np.squeeze(np.asarray(top_lip_pts))
-    top_lip_mean = np.mean(top_lip_pts, axis=0)
-    return int(top_lip_mean[:,1])
+    #     top_eyelash_pts.append(landmarks[i])
+    top_eyelash_mean = np.mean(top_eyelash_pts, axis=0)
+    return int(top_eyelash_mean[:,1])
 
-def bottom_lip(landmarks):
-    bottom_lip_pts = []
+def bottom_eyelash(landmarks):
+    bottom_eyelash_pts = []
     for i in range(40,41):
-        bottom_lip_pts.append(landmarks[i])
+        bottom_eyelash_pts.append(landmarks[i])
     # for i in range(56,59):
-    #     bottom_lip_pts.append(landmarks[i])
-    bottom_lip_all_pts = np.squeeze(np.asarray(bottom_lip_pts))
-    bottom_lip_mean = np.mean(bottom_lip_pts, axis=0)
-    return int(bottom_lip_mean[:,1])
+    #     bottom_eyelash_pts.append(landmarks[i])
+    bottom_eyelash_mean = np.mean(bottom_eyelash_pts, axis=0)
+    return int(bottom_eyelash_mean[:,1])
 
 def mouth_open(image):
     landmarks = get_landmarks(image)
@@ -60,24 +59,24 @@ def mouth_open(image):
         return image, 0
     
     image_with_landmarks = annotate_landmarks(image, landmarks)
-    top_lip_center = top_lip(landmarks)
-    bottom_lip_center = bottom_lip(landmarks)
-    lip_distance = abs(top_lip_center - bottom_lip_center)
-    return image_with_landmarks, lip_distance
+    top_eyelash_center = top_eyelash(landmarks)
+    bottom_eyelash_center = bottom_eyelash(landmarks)
+    eyelash_distance = abs(top_eyelash_center - bottom_eyelash_center)
+    return image_with_landmarks, eyelash_distance
 
-    
 
+#capturing the video from webcam 
 cap = cv2.VideoCapture(0)
 yawns = 0
 yawn_status = False 
 
 while True:
     ret, frame = cap.read()   
-    image_landmarks, lip_distance = mouth_open(frame)
+    image_landmarks, eyelash_distance = mouth_open(frame)
     
     prev_yawn_status = yawn_status  
     
-    if lip_distance < 5: #detecting the lips distance longers than 10px
+    if eyelash_distance < 5: #detecting the eyelashs distance smaller than 5px
         yawn_status = True 
         
         cv2.putText(frame, "Subject is Yawning", (50,450), 
@@ -96,7 +95,7 @@ while True:
         yawns += 1
 
     cv2.imshow('Live Landmarks', image_landmarks )
-    cv2.imshow('Yawn Detection', frame )
+    cv2.imshow('Wink Detection', frame )
     
     if cv2.waitKey(1) == 13: #13 means Press Enter to Exit
         break
