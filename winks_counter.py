@@ -67,32 +67,32 @@ def mouth_open(image):
 
 #capturing the video from webcam 
 cap = cv2.VideoCapture(0)
-yawns = 0
-yawn_status = False 
+winks = 0
+wink_status = False 
 
 while True:
     ret, frame = cap.read()   
     image_landmarks, eyelash_distance = mouth_open(frame)
     
-    prev_yawn_status = yawn_status  
+    prev_wink_status = wink_status  
     
     if eyelash_distance < 5: #detecting the eyelashs distance smaller than 5px
-        yawn_status = True 
+        wink_status = True 
         
-        cv2.putText(frame, "Subject is Yawning", (50,450), 
+        cv2.putText(frame, "Subject is Winking", (50,450), 
                     cv2.FONT_HERSHEY_COMPLEX, 1,(0,0,255),2)
         
 
-        output_text = " Yawn Count: " + str(yawns + 1)
+        output_text = " wink Count: " + str(winks + 1)
 
         cv2.putText(frame, output_text, (50,50),
                     cv2.FONT_HERSHEY_COMPLEX, 1,(0,255,127),2)
         
     else:
-        yawn_status = False 
+        wink_status = False 
          
-    if prev_yawn_status == True and yawn_status == False:
-        yawns += 1
+    if prev_wink_status == True and wink_status == False:
+        winks += 1
 
     cv2.imshow('Live Landmarks', image_landmarks )
     cv2.imshow('Wink Detection', frame )
