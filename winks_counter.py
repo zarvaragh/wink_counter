@@ -1,104 +1,74 @@
+import os
 import cv2
 import dlib
 import numpy as np
-import sys
 
-path = sys.executable
-path = path.replace("pythonw.exe", "shape_predictor_68_face_landmarks.dat")
+PREDICTOR_PATH = os.environ.get(
+    "DLIB_PREDICTOR_PATH",
+    os.path.join(os.path.dirname(__file__), "shape_predictor_68_face_landmarks.dat"),
+)
 
-# path = 'C:\\Users\\RAVEN\\Anaconda3\\envs\\tensorflow1_cpu\\shape_predictor_68_face_landmarks.dat'
-
-predictor = dlib.shape_predictor(path)
+predictor = dlib.shape_predictor(PREDICTOR_PATH)
 detector = dlib.get_frontal_face_detector()
 
 
 def get_landmarks(img):
     rects = detector(img, 1)
-
-    if len(rects) > 1:
-        return "error"
-    if len(rects) == 0:
-        return "error"
-    return np.matrix([[p.x, p.y] for p in predictor(img, rects[0]).parts()])
+    if len(rects) != 1:
+        return None
+    return np.array([[p.x, p.y] for p in predictor(img, rects[0]).parts()])
 
 
 def annotate_landmarks(img, landmarks):
     img = img.copy()
-    for idx, point in enumerate(landmarks):
-        pos = (point[0, 0], point[0, 1])
-        cv2.putText(img, str(idx), pos,
-                    fontFace=cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
-                    fontScale=0.4,
-                    color=(0, 0, 255))
-        cv2.circle(img, pos, 3, color=(0, 255, 255))
+    for idx, (x, y) in enumerate(landmarks):
+        cv2.putText(img, str(idx), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255))
+        cv2.circle(img, (x, y), 3, (0, 255, 255), -1)
     return img
 
-def top_eyelash(landmarks):
-    top_eyelash_pts = []
-    for i in range(36,39):
-        top_eyelash_pts.append(landmarks[i])
-    # for i in range(61,64):
-    #     top_eyelash_pts.append(landmarks[i])
-    top_eyelash_mean = np.mean(top_eyelash_pts, axis=0)
-    return int(top_eyelash_mean[:,1])
 
-def bottom_eyelash(landmarks):
-    bottom_eyelash_pts = []
-    for i in range(40,41):
-        bottom_eyelash_pts.append(landmarks[i])
-    # for i in range(56,59):
-    #     bottom_eyelash_pts.append(landmarks[i])
-    bottom_eyelash_mean = np.mean(bottom_eyelash_pts, axis=0)
-    return int(bottom_eyelash_mean[:,1])
-
-def mouth_open(image):
-    landmarks = get_landmarks(image)
-    
-    if landmarks == "error":
-        print("Person is not facing the camera peroperly")
-        return image, 0
-    
-    image_with_landmarks = annotate_landmarks(image, landmarks)
-    top_eyelash_center = top_eyelash(landmarks)
-    bottom_eyelash_center = bottom_eyelash(landmarks)
-    eyelash_distance = abs(top_eyelash_center - bottom_eyelash_center)
-    return image_with_landmarks, eyelash_distance
+def eye_aspect_ratio(landmarks, eye_indices):
+    pts = landmarks[eye_indices]
+    top = pts[[1, 2]].mean(axis=0)
+    bottom = pts[[5, 4]].mean(axis=0)
+    left, right = pts[0], pts[3]
+    vertical = np.linalg.norm(top - bottom)
+    horizontal = np.linalg.norm(right - left)
+    return vertical / (horizontal + 1e-6)
 
 
-#capturing the video from webcam 
+LEFT_EYE = [36, 37, 38, 39, 40, 41]
+WINK_EAR_THRESHOLD = 0.2
+
 cap = cv2.VideoCapture(0)
 winks = 0
-wink_status = False 
+wink_active = False
 
 while True:
-    ret, frame = cap.read()   
-    image_landmarks, eyelash_distance = mouth_open(frame)
-    
-    prev_wink_status = wink_status  
-    
-    if eyelash_distance < 5: #detecting the eyelashs distance smaller than 5px
-        wink_status = True 
-        
-        cv2.putText(frame, "Subject is Winking", (50,450), 
-                    cv2.FONT_HERSHEY_COMPLEX, 1,(0,0,255),2)
-        
-
-        output_text = " wink Count: " + str(winks + 1)
-
-        cv2.putText(frame, output_text, (50,50),
-                    cv2.FONT_HERSHEY_COMPLEX, 1,(0,255,127),2)
-        
-    else:
-        wink_status = False 
-         
-    if prev_wink_status == True and wink_status == False:
-        winks += 1
-
-    cv2.imshow('Live Landmarks', image_landmarks )
-    cv2.imshow('Wink Detection', frame )
-    
-    if cv2.waitKey(1) == 13: #13 means Press Enter to Exit
+    ret, frame = cap.read()
+    if not ret:
         break
-        
+
+    landmarks = get_landmarks(frame)
+    if landmarks is not None:
+        ear = eye_aspect_ratio(landmarks, LEFT_EYE)
+        frame = annotate_landmarks(frame, landmarks)
+
+        prev = wink_active
+        wink_active = ear < WINK_EAR_THRESHOLD
+
+        if prev and not wink_active:
+            winks += 1
+
+        label = f"Wink Count: {winks}"
+        color = (0, 0, 255) if wink_active else (0, 255, 127)
+        cv2.putText(frame, label, (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, color, 2)
+        if wink_active:
+            cv2.putText(frame, "Winking!", (50, 450), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2)
+
+    cv2.imshow("Wink Detection", frame)
+    if cv2.waitKey(1) == 13:
+        break
+
 cap.release()
-cv2.destroyAllWindows() 
+cv2.destroyAllWindows()
